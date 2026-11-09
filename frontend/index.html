@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none';
+               script-src 'self' https://alcdn.msauth.net 'unsafe-inline';
+               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+               font-src https://fonts.gstatic.com;
+               connect-src 'self' https://login.microsoftonline.com https://*.login.microsoftonline.com https://*.execute-api.*.amazonaws.com https://fonts.googleapis.com https://fonts.gstatic.com;
+               img-src 'self' data:;
+               frame-src 'none';">
+<title>Reltio access request</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23E01933'/><text x='16' y='22' font-family='system-ui,sans-serif' font-size='18' font-weight='700' fill='white' text-anchor='middle'>R</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- MSAL for Entra sign-in. For production, vendor @azure/msal-browser through
+     Artifactory and serve it from your own bundle instead of this CDN. -->
+<script src="https://alcdn.msauth.net/browser/3.28.1/js/msal-browser.min.js"
+        integrity="sha384-JBirS2sTtJOm8aCOLDWKPX26hcbXr7bM07fg9dzFT7Uycer08TPUMVpHFWeyhqj8"
+        crossorigin="anonymous"></script>
+<link rel="stylesheet" href="shared.css">
+</head>
+<body>
+<div class="brand-bar">
+  <div class="brand-bar-inner">
+    <div class="brand-left">
+      <svg class="brand-mark" width="60" height="26" viewBox="0 0 60 26" aria-label="Lilly"><text x="0" y="21" font-family="Georgia,serif" font-size="24" font-weight="700" fill="currentColor">Lilly</text></svg>
+      <div class="brand-divider"></div>
+      <div>
+        <span class="brand-title">Reltio Access Request</span>
+        <span class="brand-sub">Enterprise Profile Hub</span>
+      </div>
+    </div>
+    <div class="brand-right hidden" id="whoBox">
+      <div class="notif-wrap" id="notifWrap">
+        <button type="button" class="notif-bell" id="notifBell" aria-label="Notifications" title="Notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge hidden" id="notifBadge">0</span>
+        </button>
+        <div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notifications">
+          <div class="notif-header">
+            <strong>Notifications</strong>
+            <button type="button" class="link" id="markAllRead" style="color:var(--accent)">Mark all read</button>
+          </div>
+          <div id="notifList" class="notif-list" aria-live="polite"></div>
+        </div>
+      </div>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg class="theme-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg class="theme-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <span id="whoName" style="color:rgba(255,255,255,.9)"></span>
+      <button class="link" id="signOut" type="button">Sign out</button>
+    </div>
+  </div>
+</div>
+<div class="wrap">
+
+  <a href="#app" class="skip-link">Skip to main content</a>
+
+  <section class="panel gate" id="gate">
+    <strong>Sign in to continue</strong>
+    <p>Use your Lilly account to request Reltio access or review requests.</p>
+    <button class="primary" id="signIn" type="button">Sign in with Lilly SSO</button>
+    <div class="note err hidden" id="gateError"></div>
+  </section>
+
+  <div class="hidden" id="app">
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" data-view="new">New request</button>
+      <button type="button" role="tab" data-view="mine">My requests</button>
+      <button type="button" role="tab" data-view="approvals" class="hidden" id="approvalsTab">Approvals<span class="count hidden" id="approvalsCount"></span></button>
+    </nav>
+
+    <section class="panel" id="view-new" role="tabpanel">
+      <div id="newForm">
+        <fieldset>
+          <legend>Who needs access</legend>
+          <div class="grid-2">
+            <label class="field"><span>Global ID</span>
+              <input type="text" id="globalId" autocomplete="off" spellcheck="false" placeholder="L123456" aria-describedby="globalIdMsg" />
+              <div class="field-msg" id="globalIdMsg"></div>
+            </label>
+            <label class="field"><span>Lilly email</span>
+              <input type="email" id="email" autocomplete="off" spellcheck="false" placeholder="name@lilly.com" aria-describedby="emailMsg" />
+              <div class="field-msg" id="emailMsg"></div>
+            </label>
+          </div>
+          <label class="field narrow"><span>Country code</span>
+            <input type="text" id="country" list="countryList" autocomplete="off" spellcheck="false" maxlength="12" placeholder="US, or GLOBAL" aria-describedby="countryMsg" />
+            <div class="field-msg" id="countryMsg"></div>
+          </label>
+          <datalist id="countryList">
+            <option value="GLOBAL">All countries</option><option value="US">United States</option>
+            <option value="GB">United Kingdom</option><option value="DE">Germany</option>
+            <option value="FR">France</option><option value="IT">Italy</option>
+            <option value="ES">Spain</option><option value="JP">Japan</option>
+            <option value="CN">China</option><option value="IN">India</option>
+            <option value="CA">Canada</option><option value="BR">Brazil</option>
+            <option value="MX">Mexico</option><option value="AU">Australia</option>
+          </datalist>
+        </fieldset>
+
+        <fieldset>
+          <legend>Business justification</legend>
+          <textarea id="justification" rows="3" maxlength="2000" placeholder="Why does this person need this access?" aria-describedby="justificationMsg"></textarea>
+          <div class="field-msg" id="justificationMsg"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Definition of Use</legend>
+          <p class="hint">Paste your DoU. The access it grants is shown below it.</p>
+          <div class="row-inline">
+            <input type="text" id="dou" autocomplete="off" aria-label="Definition of Use" placeholder="~2578 Enterprise Profile-DOU-Global EPH IT Analyst Read Only V18" />
+            <button id="resolveBtn" type="button">Check DoU</button>
+          </div>
+          <div class="derived hidden" id="derived" aria-live="polite"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Tenants</legend>
+          <p class="hint">Where you need this access.</p>
+          <div class="checks" id="tenantList"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Manager approval</legend>
+          <p class="hint">Attach the email from your manager approving this access.</p>
+          <label class="drop" id="drop">
+            <input type="file" id="fileInput" aria-describedby="fileMsg" />
+            <span>Drop the email here, or <span class="pick">choose a file</span></span>
+            <span class="sub" id="dropRules"></span>
+          </label>
+          <div class="file hidden" id="fileBox">
+            <div><div class="name" id="fileName"></div><div class="sub" id="fileSize"></div></div>
+            <button type="button" class="link" id="fileRemove">Remove</button>
+          </div>
+          <div class="field-msg" id="fileMsg"></div>
+        </fieldset>
+
+        <p class="approvers" id="approversNote"></p>
+        <dl class="review" id="review" aria-live="polite"></dl>
+        <button class="primary" id="submitBtn" type="button" disabled>Submit request</button>
+        <p class="submit-hint" id="submitHint"></p>
+        <div class="note hidden" id="submitResult" aria-live="polite"></div>
+      </div>
+
+      <div class="hidden" id="newDone">
+        <h2 class="done-title">Request submitted</h2>
+        <p id="newDoneText"></p>
+        <div class="actions">
+          <button type="button" class="primary" id="viewMine">View my requests</button>
+          <button type="button" id="startAnother">Start another request</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="view-mine" role="tabpanel">
+      <h2 class="section-title">My requests</h2>
+      <div id="mineList" aria-live="polite"></div>
+    </section>
+
+    <section class="panel hidden" id="view-approvals" role="tabpanel">
+      <h2 class="section-title">Waiting on you</h2>
+      <div id="waitingList" aria-live="polite"></div>
+      <h2 class="section-title spaced">Other requests</h2>
+      <div id="recentList" aria-live="polite"></div>
+    </section>
+
+    <section class="panel hidden" id="view-detail" role="tabpanel">
+      <button type="button" class="link" id="backBtn">Back</button>
+      <div id="detailBody" aria-live="polite"></div>
+    </section>
+  </div>
+</div>
+<script>
+// Live backend: Entra sign-in with MSAL, then the FastAPI routes on API Gateway.
+// Fill these in from your Entra app registrations and the SAM stack outputs.
+const CONFIG = {
+  msalClientId: "<SPA_APP_CLIENT_ID>",
+  tenantId: "<LILLY_ENTRA_TENANT_GUID>",
+  apiScope: "api://<API_APP_CLIENT_ID>/user_impersonation",
+  apiBaseUrl: "<API_GATEWAY_BASE_URL>",
+};
+
+if (Object.values(CONFIG).some(v => typeof v === "string" && v.startsWith("<"))) {
+  document.body.innerHTML = '<div style="max-width:42rem;margin:4rem auto;padding:2rem;font-family:system-ui;color:#b23a30;border:2px solid #b23a30;border-radius:8px"><h2 style="margin:0 0 .5rem">Configuration missing</h2><p>Replace the placeholder values in the <code>CONFIG</code> object with your Entra app registrations and API Gateway URL before deploying.</p></div>';
+  throw new Error("CONFIG contains placeholder values — see index.html.");
+}
+
+const Backend = (() => {
+  const msalApp = new msal.PublicClientApplication({
+    auth: {
+      clientId: CONFIG.msalClientId,
+      authority: `https://login.microsoftonline.com/${CONFIG.tenantId}`,
+      redirectUri: window.location.origin + window.location.pathname,
+    },
+    cache: { cacheLocation: "sessionStorage" },
+  });
+  let account = null;
+
+  async function token() {
+    const request = { scopes: [CONFIG.apiScope], account };
+    try { return (await msalApp.acquireTokenSilent(request)).accessToken; }
+    catch { return (await msalApp.acquireTokenPopup(request)).accessToken; }
+  }
+
+  async function call(method, path, body) {
+    const headers = { Authorization: `Bearer ${await token()}` };
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const res = await fetch(CONFIG.apiBaseUrl + path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const d = data.detail;
+      throw new Error(typeof d === "string" ? d : Array.isArray(d) ? d.map((x) => x.msg).join("; ") : `Request failed (${res.status}).`);
+    }
+    return data;
+  }
+
+  return {
+    mode: "live",
+    async init() {
+      await msalApp.initialize();
+      account = msalApp.getAllAccounts()[0] || null;
+      return Boolean(account);
+    },
+    async signIn() { account = (await msalApp.loginPopup({ scopes: [CONFIG.apiScope] })).account; },
+    async signOut() { await msalApp.logoutPopup({ account }); account = null; },
+    get: (path) => call("GET", path),
+    post: (path, body) => call("POST", path, body || {}),
+    async upload(file) {
+      const p = await call("POST", "/api/attachments", { filename: file.name, size: file.size });
+      const form = new FormData();
+      Object.entries(p.fields).forEach(([k, v]) => form.append(k, v));
+      form.append("file", file);   // S3 requires the file to be the last field
+      const res = await fetch(p.url, { method: "POST", body: form });
+      if (!res.ok) throw new Error("The attachment didn’t upload. Try again, or attach a smaller file.");
+      return p.key;
+    },
+    async openAttachment(requestId) {
+      const tab = window.open("about:blank", "_blank");   // open first so pop-up blockers allow it
+      try {
+        const { url } = await call("GET", `/api/requests/${encodeURIComponent(requestId)}/attachment`);
+        if (tab) { tab.opener = null; tab.location.href = url; } else { window.location.href = url; }
+      } catch (e) { if (tab) tab.close(); throw e; }
+      return null;
+    },
+  };
+})();
+</script>
+<script src="shared.js"></script>
+<script>
+// ---------- sign-in / sign-out (per-file) ----------
+function showGateError(e) { var el = $(“gateError”); el.textContent = “Sign-in failed. “ + (e.message || “”); el.classList.remove(“hidden”); }
+
+$(“signIn”).onclick = async function () {
+  $(“signIn”).disabled = true;
+  try { await Backend.signIn(); await enterApp(); }
+  catch (e) { showGateError(e); }
+  finally { $(“signIn”).disabled = false; }
+};
+$(“signOut”).onclick = async function () {
+  await Backend.signOut();
+  state.me = null;
+  $(“app”).classList.add(“hidden”);
+  $(“whoBox”).classList.add(“hidden”);
+  $(“gate”).classList.remove(“hidden”);
+};
+
+// ---------- start ----------
+(async function () {
+  try { if (await Backend.init()) await enterApp(); }
+  catch (e) { showGateError(e); }
+})();
+</script>
+</body>
+</html>

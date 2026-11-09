@@ -1,0 +1,378 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Reltio access requests - FastAPI on Lambda, approvals in DynamoDB, attachments in S3.
+
+Parameters:
+  EntraTenantId:
+    Type: String
+    Description: Lilly Entra (Azure AD) tenant GUID.
+  EntraApiAudience:
+    Type: String
+    Description: API app registration client ID (or api://<client-id>).
+  ReltioSecretArn:
+    Type: String
+    Description: Secrets Manager ARN holding {"client_id","client_secret"} for the Reltio service account.
+  ReltioCustomerId:
+    Type: String
+    Default: EliLilly
+  RolesMatrixBucket:
+    Type: String
+    Description: S3 bucket holding roles_matrix.json (published by scripts/publish_matrix.py).
+  RolesMatrixKey:
+    Type: String
+    Default: config/roles_matrix.json
+  ApproversJson:
+    Type: String
+    Description: >-
+      JSON list of approvers, e.g. [{"name":"Revathy Surendran","upn":"<UPN>","oid":"<Entra object ID>"},
+      {"name":"Brenda Newbold","upn":"<UPN>","oid":"<Entra object ID>"}]
+  ApprovalPolicy:
+    Type: String
+    Default: all
+    AllowedValues: [all, any]
+    Description: all = every approver must approve; any = one approval is enough.
+  TenantAllowlist:
+    Type: String
+    Default: ""
+    Description: Comma-separated tenant IDs people can request (empty = every tenant on the customer).
+  TenantLabelsJson:
+    Type: String
+    Default: "{}"
+    Description: JSON map of tenant ID to the label requesters see, e.g. {"b0e8OhkxuytO3n3":"DEV B0"}.
+  CorsAllowedOrigins:
+    Type: String
+    Description: Comma-separated front-end origin(s), e.g. https://reltio-access.lilly.com.
+  NotifySender:
+    Type: String
+    Default: ""
+    Description: SES-verified sender address for email notifications (empty = no emails).
+  AppUrl:
+    Type: String
+    Default: ""
+    Description: Front-end URL, used for links in notification emails.
+  MagicLinkSecret:
+    Type: String
+    Default: ""
+    NoEcho: true
+    Description: HMAC secret for signing email approval tokens (required when NotifySender is set).
+  MagicLinkExpiryDays:
+    Type: Number
+    Default: 7
+    Description: Days before an email approval link expires.
+  ApiBaseUrl:
+    Type: String
+    Default: ""
+    Description: Backend API base URL for magic link emails (e.g. https://xxx.execute-api.region.amazonaws.com).
+  TeamsWebhookUrl:
+    Type: String
+    Default: ""
+    Description: Microsoft Teams incoming webhook URL for approval notifications (empty = disabled).
+  AlarmSnsTopicArn:
+    Type: String
+    Default: ""
+    Description: SNS topic ARN for CloudWatch alarm notifications.
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 256
+    Runtime: python3.12
+
+Conditions:
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmSnsTopicArn, ""]]
+
+Resources:
+  RequestsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: request_id, AttributeType: S }
+        - { AttributeName: status, AttributeType: S }
+        - { AttributeName: created_at, AttributeType: S }
+        - { AttributeName: requester_oid, AttributeType: S }
+      KeySchema:
+        - { AttributeName: request_id, KeyType: HASH }
+      GlobalSecondaryIndexes:
+        - IndexName: by_status
+          KeySchema:
+            - { AttributeName: status, KeyType: HASH }
+            - { AttributeName: created_at, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+        - IndexName: by_requester
+          KeySchema:
+            - { AttributeName: requester_oid, KeyType: HASH }
+            - { AttributeName: created_at, KeyType: RANGE }
+          Projection: { ProjectionType: ALL }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      SSESpecification: { SSEEnabled: true }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  NotificationsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: recipient_oid, AttributeType: S }
+        - { AttributeName: sort_key, AttributeType: S }
+      KeySchema:
+        - { AttributeName: recipient_oid, KeyType: HASH }
+        - { AttributeName: sort_key, KeyType: RANGE }
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: true }
+      SSESpecification: { SSEEnabled: true }
+      TimeToLiveSpecification: { AttributeName: ttl, Enabled: true }
+
+  # Manager-approval emails. Private, encrypted, versioned, kept on stack deletion.
+  AttachmentsBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: aws:kms }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      VersioningConfiguration: { Status: Enabled }
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldUploads
+            Status: Enabled
+            Prefix: uploads/
+            ExpirationInDays: 365
+          - Id: AbortIncompleteMultipart
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: !Split [",", !Ref CorsAllowedOrigins]
+            AllowedMethods: [POST]
+            AllowedHeaders: ["*"]
+            MaxAge: 3000
+
+  AttachmentsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AttachmentsBucket
+      PolicyDocument:
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt AttachmentsBucket.Arn
+              - !Sub "${AttachmentsBucket.Arn}/*"
+            Condition: { Bool: { "aws:SecureTransport": "false" } }
+
+  DeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600  # 14 days
+
+  AccessFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AccessFunction}"
+      RetentionInDays: 90
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/apigateway/${AccessApi}/access-logs"
+      RetentionInDays: 90
+
+  AccessApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Auth:
+        DefaultAuthorizer: EntraJwt
+        Authorizers:
+          EntraJwt:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Sub "https://login.microsoftonline.com/${EntraTenantId}/v2.0"
+              audience:
+                - !Ref EntraApiAudience
+      CorsConfiguration:
+        AllowOrigins: !Split [",", !Ref CorsAllowedOrigins]
+        AllowHeaders: ["authorization", "content-type"]
+        AllowMethods: ["GET", "POST", "OPTIONS"]
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","method":"$context.httpMethod","path":"$context.path","status":"$context.status","latency":"$context.responseLatency","error":"$context.error.message"}'
+
+  AccessFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: lambda_handler.handler
+      ReservedConcurrentExecutions: 10
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt DeadLetterQueue.Arn
+      Environment:
+        Variables:
+          ENTRA_TENANT_ID: !Ref EntraTenantId
+          ENTRA_API_AUDIENCE: !Ref EntraApiAudience
+          RELTIO_SECRET_ARN: !Ref ReltioSecretArn
+          RELTIO_CUSTOMER_ID: !Ref ReltioCustomerId
+          ROLES_MATRIX_BUCKET: !Ref RolesMatrixBucket
+          ROLES_MATRIX_KEY: !Ref RolesMatrixKey
+          APPROVERS: !Ref ApproversJson
+          APPROVAL_POLICY: !Ref ApprovalPolicy
+          TENANT_ALLOWLIST: !Ref TenantAllowlist
+          TENANT_LABELS: !Ref TenantLabelsJson
+          REQUESTS_TABLE: !Ref RequestsTable
+          ATTACHMENTS_BUCKET: !Ref AttachmentsBucket
+          CORS_ALLOWED_ORIGINS: !Ref CorsAllowedOrigins
+          NOTIFICATIONS_TABLE: !Ref NotificationsTable
+          NOTIFY_SENDER: !Ref NotifySender
+          APP_URL: !Ref AppUrl
+          MAGIC_LINK_SECRET: !Ref MagicLinkSecret
+          MAGIC_LINK_EXPIRY_DAYS: !Ref MagicLinkExpiryDays
+          API_BASE_URL: !Ref ApiBaseUrl
+          TEAMS_WEBHOOK_URL: !Ref TeamsWebhookUrl
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RequestsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationsTable
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref ReltioSecretArn
+            - Effect: Allow
+              Action: s3:GetObject
+              Resource: !Sub "arn:aws:s3:::${RolesMatrixBucket}/${RolesMatrixKey}"
+            - Effect: Allow
+              Action: [s3:PutObject, s3:GetObject]
+              Resource: !Sub "${AttachmentsBucket.Arn}/uploads/*"
+            - Effect: Allow
+              Action: ses:SendEmail
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${NotifySender}"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccessApi
+            Path: /{proxy+}
+            Method: ANY
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccessApi
+            Path: /healthz
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        EmailReview:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccessApi
+            Path: /api/email-review/{token}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        EmailAttachment:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccessApi
+            Path: /api/email-attachment/{token}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        EmailDecision:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccessApi
+            Path: /api/email-decision
+            Method: POST
+            Auth:
+              Authorizer: NONE
+        EmailConfirm:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AccessApi
+            Path: /api/email-confirm/{token}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  LambdaErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmTopic
+    Properties:
+      AlarmDescription: Lambda function errors > 0
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AccessFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlarmSnsTopicArn
+
+  LambdaDurationAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmTopic
+    Properties:
+      AlarmDescription: Lambda duration maximum > 25000 ms
+      Namespace: AWS/Lambda
+      MetricName: Duration
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref AccessFunction
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 25000
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlarmSnsTopicArn
+
+  ApiGateway5xxAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: HasAlarmTopic
+    Properties:
+      AlarmDescription: API Gateway 5xx errors > 5
+      Namespace: AWS/ApiGateway
+      MetricName: 5xx
+      Dimensions:
+        - Name: ApiId
+          Value: !Ref AccessApi
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanThreshold
+      AlarmActions:
+        - !Ref AlarmSnsTopicArn
+
+Outputs:
+  ApiBaseUrl:
+    Description: Put this in the front-end CONFIG.apiBaseUrl.
+    Value: !Sub "https://${AccessApi}.execute-api.${AWS::Region}.amazonaws.com"
+  AttachmentsBucketName:
+    Value: !Ref AttachmentsBucket
+  RequestsTableName:
+    Value: !Ref RequestsTable
+  NotificationsTableName:
+    Value: !Ref NotificationsTable

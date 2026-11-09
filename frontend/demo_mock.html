@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Reltio access request — mock demo</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='16' fill='%23E01933'/><text x='16' y='22' font-family='system-ui,sans-serif' font-size='18' font-weight='700' fill='white' text-anchor='middle'>R</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* demo-only styles */
+  .mockbar{background:linear-gradient(135deg, rgba(146,64,14,0.85), rgba(180,83,9,0.80)); backdrop-filter:blur(12px); color:#fff; font-size:.82rem; padding:.5rem 1.25rem; display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; border-bottom:1px solid rgba(255,255,255,0.1)}
+  .mockbar button{background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.25); color:#fff; padding:.25rem .6rem; border-radius:8px; font-size:.78rem; backdrop-filter:blur(8px); transition:all .15s}
+  .mockbar button:hover{background:rgba(255,255,255,.20); border-color:rgba(255,255,255,.35); transform:translateY(-1px)}
+  .email-toast{position:fixed; left:50%; bottom:1.5rem; transform:translateX(-50%) translateY(10px); opacity:0; transition:opacity .25s, transform .25s; display:flex; align-items:center; gap:.6rem; background:var(--glass-strong); backdrop-filter:var(--blur); color:var(--ink); font-size:.85rem; padding:.7rem 1rem; border-radius:var(--radius-sm); border:1px solid var(--glass-border); box-shadow:var(--shadow-lg); max-width:90vw; z-index:50}
+  .email-toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+  .email-toast .icon{font-size:1rem}
+  .notif-item{display:block; width:100%; text-align:left; padding:.6rem .65rem; border:none; border-bottom:1px solid var(--line); background:none; cursor:pointer; transition:background .15s}
+  .notif-item.unread{background:var(--accent-soft); border-left:none}
+  .notif-title{font-size:.85rem; font-weight:600; display:block}
+  .notif-sub{font-size:.78rem; color:var(--muted); display:block; margin-top:.15rem}
+  .notif-empty{padding:.75rem; font-size:.85rem; color:var(--muted); text-align:left}
+</style>
+</head>
+<body>
+<div class="mockbar">
+  <span><strong>MOCK DEMO</strong> — no real Entra, AWS, or Reltio calls. Everything runs in this browser tab and resets on reload.</span>
+  <button type="button" onclick="location.reload()">Reset demo data</button>
+</div>
+<div class="brand-bar">
+  <div class="brand-bar-inner">
+    <div class="brand-left">
+      <svg class="brand-mark" width="60" height="26" viewBox="0 0 60 26" aria-label="Lilly"><text x="0" y="21" font-family="Georgia,serif" font-size="24" font-weight="700" fill="currentColor">Lilly</text></svg>
+      <div class="brand-divider"></div>
+      <div>
+        <span class="brand-title">Reltio Access Request</span>
+        <span class="brand-sub">Enterprise Profile Hub</span>
+      </div>
+    </div>
+    <div class="brand-right hidden" id="whoBox">
+      <div class="notif-wrap" id="notifWrap">
+        <button type="button" class="notif-bell" id="notifBell" aria-label="Notifications" title="Notifications">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span class="notif-badge hidden" id="notifBadge">0</span>
+        </button>
+        <div class="notif-panel" id="notifPanel" role="dialog" aria-label="Notifications">
+          <div class="notif-header">
+            <strong>Notifications</strong>
+            <button type="button" class="link" id="markAllRead" style="color:var(--accent)">Mark all read</button>
+          </div>
+          <div id="notifList"></div>
+        </div>
+      </div>
+      <button type="button" class="theme-toggle" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+        <svg class="theme-icon-light" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg class="theme-icon-dark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <span id="whoName" style="color:rgba(255,255,255,.9)"></span>
+      <select id="identitySwitch" title="Switch identity (demo only)">
+        <option value="you">You (requester)</option>
+        <option value="vidhya">Vidhya Jhaa (approver)</option>
+      </select>
+      <button class="link" id="signOut" type="button">Sign out</button>
+    </div>
+  </div>
+</div>
+<div class="email-toast" id="emailToast" role="status" aria-live="polite"><span class="icon">✉️</span><span id="emailToastText"></span></div>
+<div class="wrap">
+
+  <section class="panel gate" id="gate">
+    <strong>Mock sign-in</strong>
+    <p>No real Entra login here. Pick who you want to be signed in as, then submit a request as yourself and switch to Vidhya Jhaa to approve it.</p>
+    <label class="field narrow"><span>Sign in as</span>
+      <select id="gateIdentity">
+        <option value="you">You (requester)</option>
+        <option value="vidhya">Vidhya Jhaa (approver)</option>
+      </select>
+    </label>
+    <button class="primary" id="signIn" type="button">Continue</button>
+    <div class="note err hidden" id="gateError"></div>
+  </section>
+
+  <div class="hidden" id="app">
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button type="button" role="tab" data-view="new">New request</button>
+      <button type="button" role="tab" data-view="mine">My requests</button>
+      <button type="button" role="tab" data-view="approvals" class="hidden" id="approvalsTab">Approvals<span class="count hidden" id="approvalsCount"></span></button>
+    </nav>
+
+    <section class="panel" id="view-new" role="tabpanel">
+      <div id="newForm">
+        <fieldset>
+          <legend>Who needs access</legend>
+          <div class="grid-2">
+            <label class="field"><span>Global ID</span>
+              <input type="text" id="globalId" autocomplete="off" spellcheck="false" placeholder="L123456" aria-describedby="globalIdMsg" />
+              <div class="field-msg" id="globalIdMsg"></div>
+            </label>
+            <label class="field"><span>Lilly email</span>
+              <input type="email" id="email" autocomplete="off" spellcheck="false" placeholder="name@lilly.com" aria-describedby="emailMsg" />
+              <div class="field-msg" id="emailMsg"></div>
+            </label>
+          </div>
+          <label class="field narrow"><span>Country code</span>
+            <input type="text" id="country" list="countryList" autocomplete="off" spellcheck="false" maxlength="12" placeholder="US, or GLOBAL" aria-describedby="countryMsg" />
+            <div class="field-msg" id="countryMsg"></div>
+          </label>
+          <datalist id="countryList">
+            <option value="GLOBAL">All countries</option><option value="US">United States</option>
+            <option value="GB">United Kingdom</option><option value="DE">Germany</option>
+            <option value="FR">France</option><option value="IT">Italy</option>
+            <option value="ES">Spain</option><option value="JP">Japan</option>
+            <option value="CN">China</option><option value="IN">India</option>
+            <option value="CA">Canada</option><option value="BR">Brazil</option>
+            <option value="MX">Mexico</option><option value="AU">Australia</option>
+          </datalist>
+        </fieldset>
+
+        <fieldset>
+          <legend>Business justification</legend>
+          <p class="hint">Explain why this access is needed. Approvers see this alongside the access they’re granting.</p>
+          <label class="field"><span>Justification</span>
+            <textarea id="justification" maxlength="500" placeholder="E.g., Need to search EU customer records to support the affiliate onboarding project."></textarea>
+            <div class="field-msg" id="justificationMsg"></div>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>Definition of Use</legend>
+          <p class="hint">Paste your DoU. The access it grants is shown below it. Try: <code>~2578 Enterprise Profile-DOU-Basic Search and Find V3</code></p>
+          <div class="row-inline">
+            <input type="text" id="dou" autocomplete="off" aria-label="DoU" placeholder="~2578 Enterprise Profile-DOU-Global EPH IT Analyst Read Only V18" />
+            <button id="resolveBtn" type="button">Check DoU</button>
+          </div>
+          <div class="derived hidden" id="derived" aria-live="polite"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Tenants</legend>
+          <p class="hint">Where you need this access.</p>
+          <div class="checks" id="tenantList"></div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Manager approval</legend>
+          <p class="hint">Attach the email from your manager approving this access.</p>
+          <label class="drop" id="drop">
+            <input type="file" id="fileInput" aria-describedby="fileMsg" />
+            <span>Drop the email here, or <span class="pick">choose a file</span></span>
+            <span class="sub" id="dropRules"></span>
+          </label>
+          <div class="file hidden" id="fileBox">
+            <div><div class="name" id="fileName"></div><div class="sub" id="fileSize"></div></div>
+            <button type="button" class="link" id="fileRemove">Remove</button>
+          </div>
+          <div class="field-msg" id="fileMsg"></div>
+        </fieldset>
+
+        <p class="approvers" id="approversNote"></p>
+        <dl class="review" id="review" aria-live="polite"></dl>
+        <button class="primary" id="submitBtn" type="button" disabled>Submit request</button>
+        <p class="submit-hint" id="submitHint"></p>
+        <div class="note hidden" id="submitResult" aria-live="polite"></div>
+      </div>
+
+      <div class="hidden" id="newDone">
+        <h2 class="done-title">Request submitted</h2>
+        <p id="newDoneText"></p>
+        <div class="actions">
+          <button type="button" class="primary" id="viewMine">View my requests</button>
+          <button type="button" id="startAnother">Start another request</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="view-mine" role="tabpanel">
+      <h2 class="section-title">My requests</h2>
+      <div id="mineList" aria-live="polite"></div>
+    </section>
+
+    <section class="panel hidden" id="view-approvals" role="tabpanel">
+      <h2 class="section-title">Waiting on you</h2>
+      <div id="waitingList" aria-live="polite"></div>
+      <h2 class="section-title spaced">Other requests</h2>
+      <div id="recentList" aria-live="polite"></div>
+    </section>
+
+    <section class="panel hidden" id="view-detail" role="tabpanel">
+      <button type="button" class="link" id="backBtn">Back</button>
+      <div id="detailBody" aria-live="polite"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+// ===========================================================================
+// MOCK Backend: simulates the real FastAPI app (app/main.py, matrix.py,
+// provisioning.py, store.py) entirely in the browser. No network calls.
+// Approver is fixed to vidhya.jhaa@lilly.com, as requested for this demo.
+// ===========================================================================
+const USERS = {
+  you:    { oid: "you-oid",    upn: "you@lilly.com",          name: "You (requester)" },
+  vidhya: { oid: "vidhya-oid", upn: "vidhya.jhaa@lilly.com",  name: "Vidhya Jhaa" },
+};
+const APPROVERS = [{ name: "Vidhya Jhaa", upn: "vidhya.jhaa@lilly.com", oid: "vidhya-oid" }];
+function userKeyForOid(oid) { return Object.keys(USERS).find((k) => USERS[k].oid === oid) || null; }
+const POLICY = "all";
+const TENANT_LABELS = { "b0e8OhkxuytO3n3": "DEV B0" };
+const ATTACHMENT_TYPES = { ".msg": 1, ".eml": 1, ".pdf": 1, ".png": 1, ".jpg": 1, ".jpeg": 1 };
+const MAX_BYTES = 10 * 1024 * 1024;
+const GLOBAL_ID_RE = /^.+$/;
+const EMAIL_DOMAINS = ["lilly.com"];
+// Mirrors the matrix typos noted in the README's "Known limits" section.
+// Left empty for this demo so every DoU in the matrix resolves cleanly, even
+// ones that mirror the real roles-matrix typos noted in the README.
+const BAD_ROLES = new Set([]);
+
+const MATRIX_VERSION = "v108";
+const MATRIX_RAW = {
+  "Basic Search and Find": {
+    reltio_roles: ["ROLE_LILLY_EPH_<2 DIGIT Country Code or GLOBAL>_BASICSEARCH", "ROLE_API_NO_EXPORT"],
+    ecdp_roles: [], retired: false,
+  },
+  "Commercial Customer Search and Find": {
+    reltio_roles: ["ROLE_LILLY_EPH_<2 Digit Country Code or GLOBAL>_COMSEARCH", "ROLE_API_NO_EXPORT"],
+    ecdp_roles: [], retired: true,
+  },
+  "Consent consumer (GCCP)": {
+    reltio_roles: ["ROLE_LILLY_EPH_GLOBAL_GCCP", "ROLE_API_EXPORT"], ecdp_roles: [], retired: false,
+  },
+  "Global Customer Connect(GCC)": {
+    reltio_roles: ["ROLE_LILLY_EPH_GLOBAL_GCC", "ROLE_API_EXPORT", "ROLE_RDM"], ecdp_roles: [], retired: false,
+  },
+  "Global EPH IT Analyst": {
+    reltio_roles: ["ROLE_LILLY_EPH_GLOBAL_ITANALYST", "ROLE_API_EXPORT", "ROLE_RDM", "ROLE_RDM_EDIT",
+      "ROLE_WORKFLOW", "ROLE_REVIEWER", "ROLE_ACTIVITY", "ROLE_EXTERNAL_MATCH", "ROLE_USER_ML_MATCH"],
+    ecdp_roles: [], retired: false,
+  },
+  "Global EPH IT Analyst Read Only": {
+    reltio_roles: ["ROLE_LILLY_EPH_GLOBAL_ITANALYST_READONLY", "ROLE_LILLY_EPH_EXPORT_NOEMAIL", "ROLE_RDM",
+      "ROLE_WORKFLOW", "ROLE_ACTIVITY", "ROLE_EXTERNAL_MATCH", "ROLE_USER_ML_MATCH"],
+    ecdp_roles: ["ECDP_ADMIN"], retired: false,
+  },
+  "Registration Consumer": {
+    reltio_roles: ["ROLE_LILLY_EPH_REGCONSUMER_<2 Digit Country Code or Country Group or GLOBAL>", "ROLE_API_NO_EXPORT"],
+    ecdp_roles: ["ECDP_REG_CONSUMERS"], retired: false,
+  },
+  "Reltio Console Data Loader Application Access": {
+    reltio_roles: ["ROLE_DATALOADER"], ecdp_roles: [], retired: false,
+  },
+};
+const MATRIX_INDEX = {};
+for (const [name, entry] of Object.entries(MATRIX_RAW)) MATRIX_INDEX[norm(name)] = { use_case: name, ...entry };
+
+function norm(s) { return String(s).replace(/\s+/g, " ").trim().toLowerCase(); }
+function nowIso() { return new Date().toISOString().replace(/\.\d+Z$/, "+00:00"); }
+function newRequestId() {
+  const d = new Date(); const ymd = d.toISOString().slice(0, 10).replace(/-/g, "");
+  return `AR-${ymd}-${Math.random().toString(16).slice(2, 8).toUpperCase()}`;
+}
+function safeFilename(name) { return String(name).replace(/[^A-Za-z0-9._ -]+/g, "_").slice(0, 120) || "attachment"; }
+function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+function parseDou(dou) {
+  let s = String(dou).trim();
+  s = s.replace(/^~?\s*\d+\s*/, "");
+  s = s.replace(/^enterprise profile\s*-\s*dou\s*-\s*/i, "");
+  s = s.replace(/\s*v\d+\s*$/i, "");
+  return s.replace(/\s+/g, " ").trim();
+}
+function normalizeCountry(code) {
+  const c = String(code || "").trim().toUpperCase();
+  if (/^[A-Z]{2}$/.test(c) || c === "GLOBAL") return c;
+  return null;
+}
+function resolveMatrix(dou, countryCode) {
+  const useCase = parseDou(dou);
+  const entry = MATRIX_INDEX[norm(useCase)];
+  if (!entry) return { dou, use_case: useCase, matched: false, retired: false, country_scoped: false,
+    reltio_roles: [], unknown_roles: [], ecdp_roles: [], error: `No use case in the roles matrix matches “${useCase}”. Check the DoU text.` };
+  const raw = entry.reltio_roles.slice();
+  const countryScoped = raw.some((r) => /<[^<>]*>/.test(r));
+  const result = { dou, use_case: entry.use_case, matched: true, retired: !!entry.retired,
+    country_scoped: countryScoped, reltio_roles: [], unknown_roles: [], ecdp_roles: entry.ecdp_roles || [], error: null };
+  if (countryScoped && !countryCode) { result.error = "This DoU is country-specific. Enter a country code to see its roles."; return result; }
+  const roles = [];
+  for (const r of raw) {
+    const name = countryCode ? r.replace(/<[^<>]*>/, countryCode) : r;
+    if (!roles.includes(name)) roles.push(name);
+  }
+  result.reltio_roles = roles.filter((r) => !BAD_ROLES.has(r));
+  result.unknown_roles = roles.filter((r) => BAD_ROLES.has(r));
+  return result;
+}
+function grantable(r) { return r.matched && !r.retired && !r.error && !r.unknown_roles.length && !!r.reltio_roles.length; }
+
+function matches(entry, user) { return entry.oid ? entry.oid.toLowerCase() === user.oid.toLowerCase()
+  : !!entry.upn && entry.upn.toLowerCase() === user.upn; }
+function approverKey(entry) { return (entry.oid || entry.upn || "").toLowerCase(); }
+function approverEntry(user) { return APPROVERS.find((a) => matches(a, user)) || null; }
+function approversFor(user) { return APPROVERS.filter((a) => !matches(a, user))
+  .map((a) => ({ key: approverKey(a), name: a.name || a.upn, upn: a.upn || "" })); }
+function emailOk(email) {
+  const m = /^[^\s@]+@([^\s@]+\.[^\s@]+)$/.exec(email);
+  if (!m) return false;
+  const domain = m[1].toLowerCase();
+  return EMAIL_DOMAINS.some((d) => domain === d || domain.endsWith("." + d));
+}
+function policyMet(item) {
+  const approved = new Set(Object.entries(item.approvals || {}).filter(([, v]) => v.decision === "approve").map(([k]) => k));
+  const required = item.required_approvers.map((a) => a.key);
+  return item.policy === "any" ? required.some((k) => approved.has(k)) : required.every((k) => approved.has(k));
+}
+
+// ---------------- fake storage ----------------
+const REQUESTS = {};
+const UPLOADS = {};
+const RELTIO_USERS = {};
+// Mirrors app/notify.py's SES emails, surfaced in-app instead of by email.
+const NOTIFICATIONS = { you: [], vidhya: [] };
+function notify(userKey, title, sub, requestId) {
+  NOTIFICATIONS[userKey].unshift({ id: `${Date.now()}-${Math.random()}`, title, sub, requestId, read: false, at: nowIso() });
+}
+
+function view(item, user) {
+  const me = approverEntry(user);
+  const myKey = me ? approverKey(me) : null;
+  const decided = item.approvals || {};
+  const pending = item.status === "PENDING";
+  const mine = item.requester_oid === user.oid;
+  const canDecide = !!me && pending && item.required_approvers.some((a) => a.key === myKey) && !decided[myKey];
+  return {
+    request_id: item.request_id, status: item.status, created_at: item.created_at, updated_at: item.updated_at,
+    requester: { name: item.requester_name, upn: item.requester_upn },
+    global_id: item.global_id, email: item.email, country_code: item.country_code, dou: item.dou, use_case: item.use_case,
+    justification: item.justification,
+    // Exact Reltio role names are shown only to the approver deciding this request.
+    role_detail: canDecide ? (item.approver_roles || item.reltio_roles).slice() : null,
+    reltio_roles: item.reltio_roles, ecdp_roles: item.ecdp_roles,
+    tenants: item.tenants.map((t) => ({ id: t, label: TENANT_LABELS[t] || t })),
+    attachment: { filename: item.attachment.filename, size: item.attachment.size },
+    policy: item.policy,
+    required_approvers: item.required_approvers.map((a) => ({ name: a.name, decision: decided[a.key] || null })),
+    result: item.result, error: item.error,
+    viewer: {
+      is_requester: mine, is_approver: !!me,
+      can_decide: canDecide,
+      can_cancel: mine && pending,
+      can_retry: !!me && item.status === "FAILED",
+    },
+  };
+}
+function load(user, requestId) {
+  const item = REQUESTS[requestId];
+  if (!item || (item.requester_oid !== user.oid && !approverEntry(user))) throw new Error("Request not found.");
+  return item;
+}
+
+// ---------------- fake Reltio provisioning ----------------
+function buildNewUser(username, email, roles, tenants) {
+  return { username, email, enabled: true, externalUser: true,
+    userPermissions: { roles: Object.fromEntries(roles.map((r) => [r, tenants.slice()])) } };
+}
+function mergeRoles(existing, roles, tenants) {
+  const current = { ...(existing.userPermissions?.roles || {}) };
+  const added = {}, already = {};
+  for (const role of roles) {
+    const have = current[role] ? current[role].slice() : [];
+    const newT = tenants.filter((t) => !have.includes(t));
+    const oldT = tenants.filter((t) => have.includes(t));
+    if (newT.length) { current[role] = have.concat(newT); added[role] = newT; }
+    if (oldT.length) already[role] = oldT;
+  }
+  const body = { ...existing, userPermissions: { ...(existing.userPermissions || {}), roles: current } };
+  return { body, added, already };
+}
+function provision(item) {
+  const username = item.global_id, roles = (item.approver_roles || item.reltio_roles).slice(), tenants = item.tenants.slice();
+  const existing = RELTIO_USERS[username];
+  if (!existing) {
+    RELTIO_USERS[username] = buildNewUser(username, item.email, roles, tenants);
+    return { action: "created", added: Object.fromEntries(roles.map((r) => [r, tenants.slice()])), already_had: {}, warnings: [] };
+  }
+  const warnings = [];
+  if ((existing.email || "").toLowerCase() !== item.email.toLowerCase())
+    warnings.push(`Reltio has ${existing.email || "no email"} for ${username}; the email wasn’t changed.`);
+  const { body, added, already } = mergeRoles(existing, roles, tenants);
+  RELTIO_USERS[username] = body;
+  if (!Object.keys(added).length) return { action: "no_change", added: {}, already_had: already, warnings };
+  return { action: "updated", added, already_had: already, warnings };
+}
+
+// ---------------- route handlers ----------------
+function presignUpload(user, filename, size) {
+  const ext = (filename.match(/\.[^.]+$/) || [""])[0].toLowerCase();
+  if (!ATTACHMENT_TYPES[ext]) throw new Error("Attach the email as .msg or .eml, or as a PDF or image.");
+  if (size > MAX_BYTES) throw new Error(`That file is too large. The limit is ${MAX_BYTES / (1024 * 1024)} MB.`);
+  const key = `uploads/${user.oid}/${Math.random().toString(16).slice(2)}/${safeFilename(filename)}`;
+  return { url: "mock://upload", fields: { key }, key };
+}
+function verifyUpload(user, key) {
+  if (!key.startsWith(`uploads/${user.oid}/`)) throw new Error("That attachment wasn’t uploaded by you. Attach the file again.");
+  const u = UPLOADS[key];
+  if (!u) throw new Error("The attachment didn’t finish uploading. Attach the file again.");
+  return { key, filename: key.split("/").pop(), size: u.size, content_type: "" };
+}
+
+function routeMetadata(user) {
+  return {
+    tenants: Object.entries(TENANT_LABELS).map(([id, label]) => ({ id, label })),
+    your_approvers: approversFor(user).map((a) => a.name),
+    approval_policy: POLICY,
+    attachment: { max_bytes: MAX_BYTES, extensions: Object.keys(ATTACHMENT_TYPES).sort() },
+    email_domains: EMAIL_DOMAINS,
+    global_id_pattern: "^.+$",
+    extra_country_codes: [],
+  };
+}
+function routeSubmit(user, body) {
+  const globalId = String(body.global_id || "").trim().toUpperCase().replace(/[–—]/g, "-");
+  if (!GLOBAL_ID_RE.test(globalId)) throw new Error("Enter a Global ID like L123456.");
+  const email = String(body.email || "").trim().toLowerCase();
+  if (!emailOk(email)) throw new Error("Enter a Lilly email address.");
+  const country = normalizeCountry(body.country_code);
+  if (!country) throw new Error("Enter a two-letter country code, like US, or GLOBAL.");
+  const justification = String(body.justification || "").trim();
+  if (!justification) throw new Error("Add a business justification for this access.");
+  const r = resolveMatrix(body.dou, country);
+  if (!r.matched || r.error) throw new Error(r.error || "That DoU doesn’t match any use case.");
+  if (r.retired) throw new Error(`“${r.use_case}” is retired, so it can’t be requested.`);
+  if (r.unknown_roles.length) throw new Error(`Part of this DoU isn’t set up in Reltio yet, so it can’t be requested.`);
+  if (!r.reltio_roles.length) throw new Error(`“${r.use_case}” grants no Reltio access.`);
+  const openTenants = new Set(Object.keys(TENANT_LABELS));
+  const tenants = [...new Set((body.tenants || []).map((t) => t.trim()).filter(Boolean))];
+  const bad = tenants.filter((t) => !openTenants.has(t));
+  if (bad.length || !tenants.length) throw new Error(`These tenants aren’t open for requests: ${bad.join(", ") || "none selected"}.`);
+  const approvers = approversFor(user);
+  if (!approvers.length) throw new Error("No approvers are set up for your requests. Contact the EPH team.");
+  const attachment = verifyUpload(user, body.attachment_key);
+  const now = nowIso();
+  const item = {
+    request_id: newRequestId(), status: "PENDING", created_at: now, updated_at: now,
+    requester_oid: user.oid, requester_upn: user.upn, requester_name: user.name || user.upn,
+    global_id: globalId, email, country_code: country, dou: String(body.dou || "").trim(), use_case: r.use_case,
+    justification,
+    reltio_roles: r.reltio_roles, ecdp_roles: r.ecdp_roles, tenants, attachment,
+    required_approvers: approvers, policy: POLICY, approvals: {}, matrix_version: MATRIX_VERSION,
+    result: null, error: null,
+  };
+  REQUESTS[item.request_id] = item;
+  for (const a of approvers) {
+    const k = userKeyForOid(a.key);
+    if (k) notify(k, "New access request to approve", `${user.name} requested “${r.use_case}” on ${tenants.map((t) => TENANT_LABELS[t] || t).join(", ")}.`, item.request_id);
+  }
+  return view(item, user);
+}
+function routeApprovals(user) {
+  const me = approverEntry(user);
+  if (!me) throw new Error("Only approvers can see the approval queue.");
+  const key = approverKey(me);
+  const all = Object.values(REQUESTS);
+  const pending = all.filter((i) => i.status === "PENDING");
+  const waiting = pending.filter((i) => i.required_approvers.some((a) => a.key === key) && !i.approvals[key]);
+  waiting.sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const waitingIds = new Set(waiting.map((i) => i.request_id));
+  const closed = ["PROVISIONING", "COMPLETED", "FAILED", "REJECTED", "CANCELLED"];
+  const others = pending.filter((i) => !waitingIds.has(i.request_id)).concat(all.filter((i) => closed.includes(i.status)));
+  others.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+  return { waiting: waiting.map((i) => view(i, user)), recent: others.slice(0, 30).map((i) => view(i, user)) };
+}
+function routeDecide(user, requestId, body) {
+  const me = approverEntry(user);
+  if (!me) throw new Error("Only approvers can decide requests.");
+  const item = load(user, requestId);
+  const key = approverKey(me);
+  if (!item.required_approvers.some((a) => a.key === key)) throw new Error("You can’t approve this request because you’re the requester.");
+  const comment = String(body.comment || "").trim();
+  if (body.decision === "reject" && !comment) throw new Error("Add a comment explaining the rejection.");
+  if (item.status !== "PENDING" || item.approvals[key]) throw new Error("This request was already decided, or you’ve already recorded a decision.");
+  if (body.decision === "approve") {
+    const allowed = new Set(item.reltio_roles);
+    const kept = Array.isArray(body.approved_roles) ? body.approved_roles.filter((r) => allowed.has(r)) : item.reltio_roles.slice();
+    if (!kept.length) throw new Error("Keep at least one access item, or reject the request instead.");
+    item.approver_roles = kept;
+  }
+  item.approvals[key] = { decision: body.decision, name: me.name || user.name, comment, at: nowIso() };
+  item.updated_at = nowIso();
+  const requesterKey = userKeyForOid(item.requester_oid);
+  if (body.decision === "reject") {
+    item.status = "REJECTED";
+    if (requesterKey) notify(requesterKey, "Access request rejected", `${me.name} rejected “${item.use_case}”: ${comment}`, item.request_id);
+  } else if (policyMet(item)) {
+    item.status = "PROVISIONING";
+    try {
+      const result = provision(item);
+      item.status = "COMPLETED"; item.result = result; item.error = null;
+      if (requesterKey) notify(requesterKey, "Access granted", `“${item.use_case}” was approved and granted in Reltio.`, item.request_id);
+    } catch (e) {
+      item.status = "FAILED"; item.error = e.message;
+      if (requesterKey) notify(requesterKey, "Approved, but Reltio rejected the change", e.message, item.request_id);
+    }
+    item.updated_at = nowIso();
+  } else if (requesterKey) {
+    notify(requesterKey, "One approval recorded", `${me.name} approved “${item.use_case}”. Still waiting on other approvers.`, item.request_id);
+  }
+  return view(item, user);
+}
+function routeRetry(user, requestId) {
+  if (!approverEntry(user)) throw new Error("Only approvers can retry granting access.");
+  const item = load(user, requestId);
+  if (item.status !== "FAILED") throw new Error("Only a request that failed to grant access can be retried.");
+  item.status = "PROVISIONING";
+  try {
+    const result = provision(item);
+    item.status = "COMPLETED"; item.result = result; item.error = null;
+  } catch (e) {
+    item.status = "FAILED"; item.error = e.message;
+  }
+  item.updated_at = nowIso();
+  return view(item, user);
+}
+function routeCancel(user, requestId) {
+  const item = load(user, requestId);
+  if (item.requester_oid !== user.oid) throw new Error("Only the requester can cancel a request.");
+  if (item.status !== "PENDING") throw new Error("Only a request that’s still waiting for approval can be cancelled.");
+  item.status = "CANCELLED"; item.updated_at = nowIso();
+  return view(item, user);
+}
+
+const Backend = (() => {
+  let currentKey = null;
+
+  async function call(method, path, body) {
+    await sleep(220);
+    const [p, qs] = path.split("?");
+    const params = new URLSearchParams(qs || "");
+    const user = USERS[currentKey];
+    if (!user) throw new Error("Not signed in.");
+
+    if (method === "GET" && p === "/api/me") return { name: user.name, upn: user.upn, is_approver: approverEntry(user) !== null };
+    if (method === "GET" && p === "/api/metadata") return routeMetadata(user);
+    if (method === "GET" && p === "/api/resolve-dou") {
+      const douText = params.get("dou") || "";
+      const countryRaw = params.get("country") || "";
+      let code = null;
+      if (countryRaw.trim()) { code = normalizeCountry(countryRaw); if (!code) throw new Error("Enter a two-letter country code, like US, or GLOBAL."); }
+      const r = resolveMatrix(douText, code);
+      return { ...r, grantable: grantable(r) };
+    }
+    if (method === "POST" && p === "/api/attachments") return presignUpload(user, body.filename, body.size);
+    if (method === "POST" && p === "/api/requests") return routeSubmit(user, body);
+    if (method === "GET" && p === "/api/requests")
+      return Object.values(REQUESTS).filter((i) => i.requester_oid === user.oid)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)).map((i) => view(i, user));
+    if (method === "GET" && p === "/api/approvals") return routeApprovals(user);
+    if (method === "GET" && p === "/api/notifications") return NOTIFICATIONS[currentKey].slice(0, 20);
+    if (method === "POST" && p === "/api/notifications/read-all") { NOTIFICATIONS[currentKey].forEach((n) => { n.read = true; }); return { ok: true }; }
+
+    let m;
+    if (method === "GET" && (m = /^\/api\/requests\/([^/]+)$/.exec(p))) return view(load(user, decodeURIComponent(m[1])), user);
+    if (method === "GET" && (m = /^\/api\/requests\/([^/]+)\/attachment$/.exec(p))) {
+      const item = load(user, decodeURIComponent(m[1]));
+      return { url: `data:text/plain;charset=utf-8,${encodeURIComponent("Mock manager-approval attachment: " + item.attachment.filename)}` };
+    }
+    if (method === "POST" && (m = /^\/api\/requests\/([^/]+)\/decision$/.exec(p))) return routeDecide(user, decodeURIComponent(m[1]), body);
+    if (method === "POST" && (m = /^\/api\/requests\/([^/]+)\/retry$/.exec(p))) return routeRetry(user, decodeURIComponent(m[1]));
+    if (method === "POST" && (m = /^\/api\/requests\/([^/]+)\/cancel$/.exec(p))) return routeCancel(user, decodeURIComponent(m[1]));
+
+    throw new Error(`Unknown mock route: ${method} ${p}`);
+  }
+
+  return {
+    mode: "mock",
+    async init() { return false; },
+    async signIn(key) {
+      const k = key || document.getElementById("gateIdentity").value;
+      currentKey = k;
+      const sw = document.getElementById("identitySwitch");
+      if (sw) sw.value = k;
+    },
+    async signOut() { currentKey = null; },
+    get: (path) => call("GET", path),
+    post: (path, body) => call("POST", path, body || {}),
+    async upload(file) {
+      const user = USERS[currentKey];
+      const p = await call("POST", "/api/attachments", { filename: file.name, size: file.size });
+      UPLOADS[p.key] = { filename: file.name, size: file.size };
+      return p.key;
+    },
+    async openAttachment(requestId) {
+      const tab = window.open("about:blank", "_blank");
+      try {
+        const { url } = await call("GET", `/api/requests/${encodeURIComponent(requestId)}/attachment`);
+        if (tab) { tab.opener = null; tab.location.href = url; } else { window.location.href = url; }
+      } catch (e) { if (tab) tab.close(); throw e; }
+      return null;
+    },
+  };
+})();
+</script>
+<script src="shared.js"></script>
+<script>
+// ===========================================================================
+// Demo overrides — redefine shared.js functions where the demo differs
+// ===========================================================================
+
+// Demo email toast
+var emailToastTimer = null;
+function showEmailToast(text) {
+  clearTimeout(emailToastTimer);
+  var el = $("emailToast");
+  $("emailToastText").textContent = text;
+  el.classList.add("show");
+  emailToastTimer = setTimeout(function () { el.classList.remove("show"); }, 4500);
+}
+
+// Demo: no notification polling, use local NOTIFICATIONS store
+var lastNotifications = [];
+function refreshNotifications() {
+  Backend.get("/api/notifications").then(function (items) {
+    lastNotifications = items;
+    var unread = items.filter(function (n) { return !n.read; }).length;
+    var badge = $("notifBadge");
+    badge.textContent = unread > 99 ? "99+" : String(unread);
+    badge.classList.toggle("hidden", !unread);
+  }).catch(function () { /* badge only */ });
+}
+
+function renderNotifPanel() {
+  var container = $("notifList");
+  container.innerHTML = lastNotifications.length
+    ? lastNotifications.map(function (n) {
+        return '<button type="button" class="notif-item ' + (n.read ? "" : "unread") + '" data-id="' + esc(n.requestId) + '">' +
+          '<span class="notif-title">' + esc(n.title) + '</span>' +
+          '<span class="notif-sub">' + esc(n.sub) + '</span>' +
+          '<span class="notif-sub">' + esc(fmtWhen(n.at)) + '</span></button>';
+      }).join("")
+    : '<div class="notif-empty">No notifications yet.</div>';
+  container.querySelectorAll(".notif-item").forEach(function (b) {
+    b.addEventListener("click", function () {
+      $("notifPanel").classList.remove("show");
+      openDetail(b.dataset.id, state.me.is_approver ? "approvals" : "mine");
+    });
+  });
+}
+
+// Override wireNotifications for demo
+wireNotifications = function () {
+  $("notifBell").onclick = function (e) { e.stopPropagation(); toggleNotifPanelDemo(); };
+  $("markAllRead").onclick = function () {
+    Backend.post("/api/notifications/read-all", {}).then(function () {
+      return refreshNotifications();
+    }).then(function () {
+      renderNotifPanel();
+    });
+  };
+  document.addEventListener("click", function (e) {
+    var wrap = $("notifWrap");
+    if (wrap && !wrap.contains(e.target)) $("notifPanel").classList.remove("show");
+  });
+  refreshNotifications();
+};
+
+function toggleNotifPanelDemo() {
+  var panel = $("notifPanel");
+  var opening = !panel.classList.contains("show");
+  if (!opening) { panel.classList.remove("show"); return; }
+  renderNotifPanel();
+  panel.classList.add("show");
+}
+
+// Override: enterApp adds refreshNotifications at the end
+var _sharedEnterApp = enterApp;
+enterApp = function () {
+  return _sharedEnterApp().then(function () {
+    refreshNotifications();
+  });
+};
+
+// Override: showView (no interval timers in demo, simpler tab handling)
+showView = function (name) {
+  state.view = name;
+  ["new", "mine", "approvals", "detail"].forEach(function (v) {
+    $("view-" + v).classList.toggle("hidden", v !== name);
+  });
+  var tab = name === "detail" ? state.returnView : name;
+  document.querySelectorAll(".tabs [data-view]").forEach(function (b) {
+    if (b.dataset.view === tab) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  if (name !== "detail" && Backend.mode === "live" && location.hash) {
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+  if (name === "mine") loadMine();
+  if (name === "approvals") loadApprovals();
+};
+
+// Override: renderDerived (demo shows counts not role names)
+renderDerived = function (r) {
+  var box = $("derived");
+  if (!r.matched) { box.innerHTML = '<div class="banner err">' + esc(r.error) + '</div>'; return; }
+  var html = '<div class="uc">' + esc(r.use_case) + '</div>';
+  if (r.error) html += '<div class="banner warn">' + esc(r.error) + '</div>';
+  if (r.retired) html += '<div class="banner err">This use case is retired, so it can\'t be requested.</div>';
+  if (r.unknown_roles.length) {
+    html += r.country_scoped
+      ? '<div class="banner warn">' + r.unknown_roles.length + ' of the access ' + (r.unknown_roles.length === 1 ? 'item' : 'items') + ' for this use case aren\'t set up in Reltio for that country. Check the country code.</div>'
+      : '<div class="banner warn">' + r.unknown_roles.length + ' of the access ' + (r.unknown_roles.length === 1 ? 'item' : 'items') + ' for this use case aren\'t set up in Reltio, so this DoU can\'t be requested yet.</div>';
+  }
+  if (!r.error && !r.retired && !r.unknown_roles.length && !r.reltio_roles.length)
+    html += '<div class="banner warn">This use case grants no Reltio access. It\'s handled elsewhere, so there\'s nothing to request here.</div>';
+  if (r.reltio_roles.length)
+    html += '<div class="group"><h4>' + (r.grantable ? "You'll be granted" : "This use case grants") + ' ' + r.reltio_roles.length + ' access ' + (r.reltio_roles.length === 1 ? 'item' : 'items') + ' in Reltio</h4></div>';
+  if (r.ecdp_roles.length)
+    html += '<div class="group"><h4>Plus ' + r.ecdp_roles.length + ' item' + (r.ecdp_roles.length === 1 ? '' : 's') + ' granted separately, outside this request</h4></div>';
+  box.innerHTML = html;
+};
+
+// Override: refreshReviewNow (demo shows different fields)
+refreshReviewNow = function () {
+  if (!state.meta) return;
+  var r = state.resolved;
+  var roleCount = r && r.grantable ? r.reltio_roles.length : 0;
+  $("review").innerHTML =
+    '<dt>Global ID</dt><dd class="mono">' + (esc($("globalId").value.trim().toUpperCase()) || "—") + '</dd>' +
+    '<dt>Email</dt><dd>' + (esc($("email").value.trim()) || "—") + '</dd>' +
+    '<dt>Country</dt><dd>' + (esc(normCountry($("country").value) || "") || "—") + '</dd>' +
+    '<dt>Use case</dt><dd>' + (r && r.matched ? esc(r.use_case) : "—") + '</dd>' +
+    '<dt>Reltio access</dt><dd>' + (roleCount ? roleCount + ' item' + (roleCount === 1 ? '' : 's') : "—") + '</dd>' +
+    '<dt>Tenants</dt><dd>' + (esc(selectedTenants().map(tenantLabel).join(", ")) || "—") + '</dd>' +
+    '<dt>Business justification</dt><dd>' + (esc($("justification").value.trim()) || "—") + '</dd>' +
+    '<dt>Manager approval</dt><dd>' + (state.file ? esc(state.file.name) : "—") + '</dd>';
+  var missing = missingItems();
+  var ready = !missing.length && state.meta.your_approvers.length > 0;
+  $("submitBtn").disabled = !ready;
+  $("submitHint").textContent = missing.length ? "Still needed: " + listNames(missing) + "." : "";
+};
+
+// Override: submit (adds email toast)
+submit = function () {
+  var btn = $("submitBtn"), out = $("submitResult");
+  btn.disabled = true;
+  out.className = "note hidden";
+  var uploadP;
+  if (!state.uploadedKey) {
+    btn.textContent = "Uploading the attachment…";
+    uploadP = Backend.upload(state.file).then(function (key) { state.uploadedKey = key; });
+  } else {
+    uploadP = Promise.resolve();
+  }
+  uploadP.then(function () {
+    btn.textContent = "Submitting…";
+    return Backend.post("/api/requests", {
+      global_id: $("globalId").value.trim().replace(/[–—]/g, "-"),
+      email: $("email").value.trim(),
+      country_code: $("country").value.trim(),
+      dou: $("dou").value.trim(),
+      justification: $("justification").value.trim(),
+      tenants: selectedTenants(),
+      attachment_key: state.uploadedKey,
+    });
+  }).then(function (v) {
+    var names = v.required_approvers.map(function (a) { return a.name; });
+    var when = v.policy === "any" || names.length === 1 ? "it's approved" : names.length === 2 ? "both have approved" : "everyone has approved";
+    $("newDoneText").textContent = "Request " + v.request_id + " is with " + listNames(names, v.policy === "any" ? "or" : "and") + ". The access is granted in Reltio as soon as " + when + ". You can follow it in My requests.";
+    $("newForm").classList.add("hidden");
+    $("newDone").classList.remove("hidden");
+    var approverEmails = APPROVERS.filter(function (a) { return names.includes(a.name); }).map(function (a) { return a.upn; });
+    showEmailToast("Email sent to " + listNames(approverEmails) + ": new access request to approve.");
+  }).catch(function (e) {
+    note(out, "err", e.message);
+  }).finally(function () {
+    btn.textContent = "Submit request";
+    refreshReview();
+  });
+};
+
+// Override: loadMine (no pagination in demo)
+loadMine = function () {
+  var box = $("mineList");
+  box.innerHTML = '<p class="empty"><span class="spinner"></span>Loading…</p>';
+  Backend.get("/api/requests").then(function (items) {
+    box.innerHTML = items.length ? items.map(function (v) { return row(v, "mine"); }).join("") : '<p class="empty">You haven\'t requested any access yet.</p>';
+    bindRows(box, "mine");
+  }).catch(function (e) {
+    box.innerHTML = '<div class="note err">' + esc(e.message) + '</div>';
+  });
+};
+
+// Override: loadApprovals (no pagination in demo)
+loadApprovals = function () {
+  var w = $("waitingList"), r = $("recentList");
+  w.innerHTML = r.innerHTML = '<p class="empty"><span class="spinner"></span>Loading…</p>';
+  Backend.get("/api/approvals").then(function (data) {
+    w.innerHTML = data.waiting.length ? data.waiting.map(function (v) { return row(v, "approvals"); }).join("") : '<p class="empty">Nothing is waiting on you.</p>';
+    r.innerHTML = data.recent.length ? data.recent.map(function (v) { return row(v, "approvals"); }).join("") : '<p class="empty">No other requests yet.</p>';
+    bindRows(w, "approvals");
+    bindRows(r, "approvals");
+    setApprovalsCount(data.waiting.length);
+  }).catch(function (e) {
+    w.innerHTML = '<div class="note err">' + esc(e.message) + '</div>';
+    r.innerHTML = "";
+  });
+};
+
+// Override: resultHtml (demo shows counts not role names)
+resultHtml = function (v) {
+  var r = v.result || {};
+  var count = function (map) { return Object.values(map || {}).reduce(function (n, ts) { return n + ts.length; }, 0); };
+  var lines = [];
+  if (r.action === "created") lines.push("Created " + v.global_id + " in Reltio with " + count(r.added) + " access item" + (count(r.added) === 1 ? "" : "s") + ".");
+  if (r.action === "updated") lines.push("Added " + count(r.added) + " access item" + (count(r.added) === 1 ? "" : "s") + " to " + v.global_id + ".");
+  if (r.action === "no_change") lines.push(v.global_id + " already had all of this access, so nothing changed.");
+  if (r.action !== "no_change" && Object.keys(r.already_had || {}).length) lines.push(count(r.already_had) + " item" + (count(r.already_had) === 1 ? "" : "s") + " were already in place.");
+  if (v.ecdp_roles.length) lines.push(v.ecdp_roles.length + " item" + (v.ecdp_roles.length === 1 ? "" : "s") + " still need granting separately, outside this request.");
+  return lines.map(function (l) { return '<span class="detail-text">' + esc(l) + '</span>'; }).join("") +
+    (r.warnings || []).map(function (w) { return '<span class="detail-text warn-text">' + esc(w) + '</span>'; }).join("");
+};
+
+// Override: actionsHtml (demo has extra context hints)
+actionsHtml = function (v) {
+  var f = v.viewer;
+  if (f.can_decide) {
+    var last = v.policy === "any" || v.required_approvers.filter(function (a) { return !a.decision; }).length <= 1;
+    if (!decisionDraft) decisionDraft = { step: "edit", roles: new Set(v.role_detail || []) };
+    var allRoles = v.role_detail || [];
+    if (decisionDraft.step === "confirm") {
+      var kept = allRoles.filter(function (r) { return decisionDraft.roles.has(r); });
+      return '<div class="decision">' +
+        '<h3 class="section-title">Confirm access to grant</h3>' +
+        '<p class="hint">' + (last ? "Yours is the last approval needed. Confirming grants this access in Reltio right away." : "The access is granted once every approver has approved.") + '</p>' +
+        '<div class="group"><h4>Granting ' + kept.length + ' access item' + (kept.length === 1 ? '' : 's') + ' in Reltio</h4>' +
+        '<div class="checks">' + kept.map(function (r) { return '<div class="check mono" style="cursor:default">' + esc(r) + '</div>'; }).join('') + '</div></div>' +
+        (allRoles.length > kept.length ? '<div class="banner warn">' + (allRoles.length - kept.length) + ' item' + (allRoles.length - kept.length === 1 ? '' : 's') + ' removed and will NOT be granted.</div>' : '') +
+        '<div class="actions"><button type="button" class="primary" id="confirmApproveBtn">Confirm and grant access</button><button type="button" id="backToEditBtn">Back</button></div></div>';
+    }
+    return '<div class="decision">' +
+      '<h3 class="section-title">Your decision</h3>' +
+      '<p class="hint">' + (last ? "Yours is the last approval needed. Approving grants this access in Reltio right away." : "The access is granted once every approver has approved.") + '</p>' +
+      '<div class="group"><h4>Reltio access requested (' + allRoles.length + ' item' + (allRoles.length === 1 ? '' : 's') + ')</h4>' +
+      '<p class="hint">Uncheck anything you don\'t want to grant.</p>' +
+      '<div class="checks">' + allRoles.map(function (r) {
+        return '<label class="check"><input type="checkbox" name="approveRole" value="' + esc(r) + '" ' + (decisionDraft.roles.has(r) ? 'checked' : '') + ' />' +
+          '<span class="label mono">' + esc(r) + '</span></label>';
+      }).join('') + '</div></div>' +
+      '<label class="field"><span>Comment</span><textarea id="decisionComment" maxlength="1000" placeholder="Required if you reject">' + esc(decisionDraft.comment || '') + '</textarea></label>' +
+      '<div class="actions"><button type="button" class="primary" id="approveBtn">Continue</button><button type="button" class="danger" id="rejectBtn">Reject</button></div></div>';
+  }
+  if (f.can_retry) return '<div class="actions"><button type="button" class="primary" id="retryBtn">Try granting access again</button></div>';
+  if (f.can_cancel) return '<div class="actions"><button type="button" class="danger" id="cancelBtn">Cancel request</button></div>';
+  return "";
+};
+
+// Override: renderDetail (demo shows counts not chips)
+renderDetail = function (v) {
+  $("detailBody").innerHTML =
+    '<div class="detail-head">' +
+    '<h2 class="detail-title">' + esc(v.use_case) + '</h2>' +
+    '<span class="pill ' + esc(v.status) + '">' + pillIcon(v.status) + esc(STATUS[v.status] || v.status) + '</span></div>' +
+    '<p class="detail-id">Request <span class="mono">' + esc(v.request_id) + '</span>, submitted ' + esc(fmtWhen(v.created_at)) + '</p>' +
+    '<dl class="facts">' +
+    '<dt>Requested by</dt><dd>' + esc(v.requester.name) + '</dd>' +
+    '<dt>Global ID</dt><dd class="mono">' + esc(v.global_id) + '</dd>' +
+    '<dt>Email</dt><dd>' + esc(v.email) + '</dd>' +
+    '<dt>Country</dt><dd>' + esc(v.country_code) + '</dd>' +
+    '<dt>DoU</dt><dd>' + esc(v.dou) + '</dd>' +
+    '<dt>Business justification</dt><dd>' + (esc(v.justification) || "—") + '</dd>' +
+    '<dt>Tenants</dt><dd>' + v.tenants.map(function (t) { return esc(t.label) + (t.label !== t.id ? ' <span class="mono sub">' + esc(t.id) + '</span>' : ''); }).join("<br>") + '</dd>' +
+    '<dt>Manager approval</dt><dd>' + esc(v.attachment.filename) + ' <span class="sub">' + esc(fmtSize(v.attachment.size)) + '</span> <button type="button" class="link" id="openAttachment">Open</button></dd></dl>' +
+    '<div class="group"><h4>Reltio access (' + v.reltio_roles.length + ' item' + (v.reltio_roles.length === 1 ? '' : 's') + ')</h4></div>' +
+    (v.ecdp_roles.length ? '<div class="group"><h4>' + v.ecdp_roles.length + ' item' + (v.ecdp_roles.length === 1 ? '' : 's') + ' granted separately, outside this request</h4></div>' : '') +
+    '<h3 class="section-title spaced">Progress</h3>' +
+    timeline(v) +
+    actionsHtml(v) +
+    '<div class="note hidden" id="actionResult" aria-live="polite"></div>';
+  $("openAttachment").onclick = function () {
+    Backend.openAttachment(v.request_id).then(function (msg) {
+      if (msg) note($("actionResult"), "info", msg);
+    }).catch(function (e) {
+      note($("actionResult"), "err", e.message);
+    });
+  };
+  wireActions(v);
+};
+
+// Override: wireActions (demo: no confirm dialog, reset decisionDraft)
+wireActions = function (v) {
+  var id = encodeURIComponent(v.request_id);
+  var run = function (action, btn, busyLabel, call) {
+    var buttons = [].slice.call(document.querySelectorAll("#detailBody .actions button"));
+    buttons.forEach(function (b) { b.disabled = true; });
+    var label = btn.textContent;
+    btn.textContent = busyLabel;
+    call().then(function (nv) {
+      decisionDraft = null;
+      renderDetail(nv);
+      afterAction(nv, action);
+    }).catch(function (e) {
+      buttons.forEach(function (b) { b.disabled = false; });
+      btn.textContent = label;
+      note($("actionResult"), "err", e.message);
+    });
+  };
+  var approve = $("approveBtn"), reject = $("rejectBtn"), retry = $("retryBtn"), cancel = $("cancelBtn");
+  var confirmApprove = $("confirmApproveBtn"), backToEdit = $("backToEditBtn");
+  document.querySelectorAll('input[name="approveRole"]').forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      if (cb.checked) decisionDraft.roles.add(cb.value);
+      else decisionDraft.roles.delete(cb.value);
+    });
+  });
+  if (approve) approve.onclick = function () {
+    if (!decisionDraft.roles.size) { note($("actionResult"), "err", "Keep at least one access item, or reject the request instead."); return; }
+    decisionDraft.comment = $("decisionComment").value;
+    decisionDraft.step = "confirm";
+    renderDetail(v);
+  };
+  if (backToEdit) backToEdit.onclick = function () { decisionDraft.step = "edit"; renderDetail(v); };
+  if (confirmApprove) confirmApprove.onclick = function () {
+    run("approve", confirmApprove, "Granting access…", function () {
+      return Backend.post("/api/requests/" + id + "/decision", { decision: "approve", comment: decisionDraft.comment || "", approved_roles: [].concat([...decisionDraft.roles]) });
+    });
+  };
+  if (reject) reject.onclick = function () {
+    if (!$("decisionComment").value.trim()) { note($("actionResult"), "err", "Add a comment explaining why you're rejecting it."); $("decisionComment").focus(); return; }
+    run("reject", reject, "Rejecting…", function () {
+      return Backend.post("/api/requests/" + id + "/decision", { decision: "reject", comment: $("decisionComment").value });
+    });
+  };
+  if (retry) retry.onclick = function () {
+    run("retry", retry, "Trying again…", function () { return Backend.post("/api/requests/" + id + "/retry", {}); });
+  };
+  if (cancel) cancel.onclick = function () {
+    run("cancel", cancel, "Cancelling…", function () { return Backend.post("/api/requests/" + id + "/cancel", {}); });
+  };
+};
+
+// Override: afterAction (demo adds email toast)
+afterAction = function (v, action) {
+  var waiting = v.required_approvers.filter(function (a) { return !a.decision; }).map(function (a) { return a.name; });
+  var messages = {
+    approve: { COMPLETED: "Approved. The access has been granted in Reltio.", PENDING: "Approved. Waiting on " + listNames(waiting) + ".", FAILED: "Approved, but Reltio didn't accept the change. The error is in the progress list; you can try again." },
+    reject: { REJECTED: "Rejected. The requester can see your comment." },
+    retry: { COMPLETED: "The access has been granted in Reltio.", FAILED: "Reltio still didn't accept the change. The error is in the progress list." },
+    cancel: { CANCELLED: "Request cancelled." },
+  };
+  var msg = messages[action]?.[v.status];
+  if (msg) note($("actionResult"), v.status === "FAILED" ? "err" : "ok", msg);
+  if (action === "approve" && v.status === "COMPLETED") showEmailToast("Email sent to " + v.requester.upn + ": access granted.");
+  else if (action === "approve" && v.status === "FAILED") showEmailToast("Email sent to " + listNames(v.required_approvers.map(function (a) { return a.name; })) + ": Reltio rejected the change.");
+  else if (action === "reject") showEmailToast("Email sent to " + v.requester.upn + ": request rejected.");
+  refreshApprovalsCount();
+  refreshNotifications();
+};
+
+// Override: loadNotifications (demo uses refreshNotifications instead)
+loadNotifications = refreshNotifications;
+
+// ---------- sign-in / sign-out ----------
+function showGateError(e) { var el = $("gateError"); el.textContent = "Sign-in failed. " + (e.message || ""); el.classList.remove("hidden"); }
+
+$("signIn").onclick = async function () {
+  $("signIn").disabled = true;
+  try { await Backend.signIn(); await enterApp(); }
+  catch (e) { showGateError(e); }
+  finally { $("signIn").disabled = false; }
+};
+$("signOut").onclick = async function () {
+  await Backend.signOut();
+  state.me = null;
+  $("app").classList.add("hidden");
+  $("whoBox").classList.add("hidden");
+  $("gate").classList.remove("hidden");
+};
+
+// ---------- start ----------
+(async function () {
+  try { if (await Backend.init()) await enterApp(); }
+  catch (e) { showGateError(e); }
+})();
+</script>
+<script>
+// ---------- identity switcher (demo only) ----------
+document.getElementById("identitySwitch").addEventListener("change", async function (e) {
+  await Backend.signIn(e.target.value);
+  await enterApp();
+});
+</script>
+</body>
+</html>

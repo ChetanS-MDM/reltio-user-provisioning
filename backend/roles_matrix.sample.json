@@ -1,0 +1,324 @@
+{
+  "source_version": "v108",
+  "use_cases": {
+    "Basic Search and Find": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_<2 DIGIT Country Code or GLOBAL>_BASICSEARCH",
+        "ROLE_API_NO_EXPORT"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Commercial Customer Search and Find": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_<2 Digit Country Code or GLOBAL>_COMSEARCH",
+        "ROLE_API_NO_EXPORT"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Consent consumer (GCCP)": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_GCCP",
+        "ROLE_API_EXPORT"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Global Customer Connect(GCC)": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_GCC",
+        "ROLE_API_EXPORT",
+        "ROLE_RDM"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "1. Global Customer ODS(CODS) Need to review with IT team to change the role": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_CODS",
+        "ROLE_LILLY_EPH_GLOBAL_CODS_V2",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL",
+        "ROLE_RDM"
+      ],
+      "ecdp_roles": [
+        "ECDP_CODS_COMMERCIAL"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "Global Data Strategist": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_DS",
+        "ACCEPT_CHANGE_REQUEST",
+        "ROLE_API_EXPORT",
+        "ROLE_REVIEWER",
+        "ROLE_WORKFLOW",
+        "ROLE_RDM",
+        "ROLE_RDM_EDIT",
+        "ROLE_ACTIVITIES",
+        "ROLE_EXTERNAL_MATCH",
+        "ROLE_USER_ML_MATCH",
+        "ROLE_DATALOADER"
+      ],
+      "ecdp_roles": [
+        "ECDP_GLOBAL_DS"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "Global Digital and Commercial Customer Search": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_DC",
+        "ROLE_API_EXPORT"
+      ],
+      "ecdp_roles": [
+        "ECDP_GLOBAL_DC"
+      ],
+      "retired": false,
+      "notes": "Removed the Delete access"
+    },
+    "Global EPH IT Analyst": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_ITANALYST",
+        "ROLE_API_EXPORT",
+        "ROLE_RDM",
+        "ROLE_RDM_EDIT",
+        "ROLE_WORKFLOW",
+        "ROLE_REVIEWER",
+        "ROLE_ACTIVITY",
+        "ROLE_EXTERNAL_MATCH",
+        "ROLE_USER_ML_MATCH"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Global EPH IT Analyst Read Only": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_ITANALYST_READONLY",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL",
+        "ROLE_RDM",
+        "ROLE_WORKFLOW",
+        "ROLE_ACTIVITY",
+        "ROLE_EXTERNAL_MATCH",
+        "ROLE_USER_ML_MATCH"
+      ],
+      "ecdp_roles": [
+        "ECDP_ADMIN"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "Operational Data Steward": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_<2 Digit Country Code and GLOBAL>_OS",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Registration Consumer": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_REGCONSUMER_<2 Digit Country Code or Country Group or GLOBAL>",
+        "ROLE_API_NO_EXPORT"
+      ],
+      "ecdp_roles": [
+        "ECDP_REG_CONSUMERS"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "2. Second Review Research Customer Search and Find": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_<2 Digit Country Code or GLOBAL>_RESSEARCH",
+        "ROLE_API_EXPORT"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Scientific Expert and Thought Leader Customer Search and Find": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_<2 Digit Country Code or GLOBAL>_TLSESEARCH",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Scientific Expert and Thought Leader Customer Search and Find with Email": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_<2 Digit Country Code or GLOBAL>_TLSESEARCHEMAIL",
+        "ROLE_API_EXPORT"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "GLOBAL WEBSITE REGISTRATION": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_WEBSITEREG",
+        "ROLE_API_EXPORT"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Registration Data Steward": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_REGDS_<2 Digit Country Code or Country Group or GLOBAL>",
+        "ROLE_LILLY_EPH_REGCONSUMER_<2 Digit Country Code or Country Group or GLOBAL>",
+        "ROLE_API_EXPORT",
+        "ROLE_UI",
+        "ROLE_API"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Medical Integration Hub": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_MIH",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL"
+      ],
+      "ecdp_roles": [
+        "ECDP_GLOBAL_MIH"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "ECDP Analytical": {
+      "reltio_roles": [],
+      "ecdp_roles": [
+        "ECDP_ANALYTICAL"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "ECDP Global Analytical": {
+      "reltio_roles": [],
+      "ecdp_roles": [
+        "ECDP_GLOBAL_ANALYTICAL"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "ECDP Global Analyst": {
+      "reltio_roles": [],
+      "ecdp_roles": [
+        "ECDP_GLOBAL_ANALYST"
+      ],
+      "retired": false,
+      "notes": null
+    },
+    "Physician Exclusion Read Only": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_PHYSICIAN_EXCLUSION"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Read Access for Privacy Status 'R' and 'D'": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_LEGAL",
+        "ROLE_LILLY_EPH_GLOBAL_TRANSPARENCY_REPORTING",
+        "ROLE_LILLY_EPH_GLOBAL_ETHICS_COMPLIANCE",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Global MDU Suspect MDU Match processor": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_MDU_SUSPECTMATCH",
+        "ROLE_API_EXPORT",
+        "ROLE_REVIEWER",
+        "ROLE_WORKFLOW",
+        "ROLE_ACTIVITIES"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Global DCR Access": {
+      "reltio_roles": [
+        "ROLE_API",
+        "ROLE_LILLY_EPH_DCR_GLOBAL",
+        "ROLE_WORKFLOW",
+        "ROLE_REVIEWER",
+        "ROLE_LILLY_EPH_GLOBAL_DS"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Affiliate DCR Access": {
+      "reltio_roles": [
+        "ROLE_API",
+        "ROLE_WORKFLOW_AFFILIATE",
+        "ROLE_REVIEWER_AFFILIATE",
+        "ACCEPT_CHANGE_REQUEST",
+        "ROLE_LILLY_EPH_<2 Digit Country Code>_OS"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Physician Exclusion Read and Update": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_PHYSICIAN_EXCLUSION_EDIT"
+      ],
+      "ecdp_roles": [],
+      "retired": true,
+      "notes": "Retired"
+    },
+    "Integration Development": {
+      "reltio_roles": [
+        "ROLE_Integration_Development",
+        "ROLE_API",
+        "ROLE_RDM"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": "Removed Production access of all users"
+    },
+    "VEEVA CRM Read Only": {
+      "reltio_roles": [
+        "ROLE_VEEVA_CRM",
+        "ROLE_RDM",
+        "ROLE_ACTIVITIES",
+        "ROLE_LILLY_EPH_EXPORT_NOEMAIL",
+        "ROLE_INTEGRATION_SPECIALIST"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Global LSC Application access": {
+      "reltio_roles": [
+        "ROLE_LILLY_EPH_GLOBAL_LSC",
+        "ROLE_API_EXPORT",
+        "ROLE_RDM"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    },
+    "Reltio Console Data Loader Application Access": {
+      "reltio_roles": [
+        "ROLE_DATALOADER"
+      ],
+      "ecdp_roles": [],
+      "retired": false,
+      "notes": null
+    }
+  }
+}

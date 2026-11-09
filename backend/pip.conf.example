@@ -1,0 +1,5 @@
+# Copy to ~/.config/pip/pip.conf (Linux/Mac) or %APPDATA%\pip\pip.ini (Windows),
+# or export PIP_INDEX_URL. Replace the token placeholder with your identity token.
+# See dev.lilly.com/docs/platforms-and-tools/artifactory for access + setup.
+[global]
+index-url = https://<user>:<identity-token>@elilillyco.jfrog.io/artifactory/api/pypi/Lilly-Python/simple
